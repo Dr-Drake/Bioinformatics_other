@@ -1,0 +1,24 @@
+grep -v "##" freebayes.vcf | wc -l # 51353
+
+vcffilter --info-filter "QUAL > 20" freebayes.vcf > freebayes_QUALgt20.vcf
+grep -v "##" freebayes_QUALgt20.vcf | wc -l # 42894
+
+cd $home/pathogenPolyomicsData/Reference
+picard CreateSequenceDictionary R=TriTrypDB-25_LmexicanaMHOMGT2001U1103.fa
+
+cd  $home/pathogenPolyomicsData/DNAseq/snps/
+java -jar $VTC SO -i f0=freebayes_QUALgt20.vcf -s AmpB_only=c[f0[LmexAmpB]:f0[LmexWT]] -c het_homo_alt --reference-genome ../../Reference/TriTrypDB-25_LmexicanaMHOMGT2001U1103.fa -o AmpB_only.vcf
+grep -v "##" AmpB_only.vcf | wc -l # 1530
+
+# snpEff retains the vcf format: 1 line per variant. Most variants have multiple predicted effects (multiple nearby features)
+snpEff Lmex AmpB_only.vcf > AmpB_only.ann.vcf
+
+grep "protein_coding" AmpB_only.ann.vcf | grep "HIGH" | wc -l # 15
+grep "protein_coding" AmpB_only.ann.vcf | grep "HIGH" | wc -l # 155
+
+# SnpSift puts each annotated effect on a different line, so one variant may have multiple lines in the output
+cat AmpB_only.ann.vcf | vcfEffOnePerLine.pl | SnpSift extractFields - CHROM POS REF ALT "ANN[*].IMPACT" "ANN[*].EFFECT" "ANN[*].GENE" "ANN[*].HGVS_C" "ANN[*].HGVS_P" "GEN[*].GT" -v > AmpB_only.ann.sifted.txt
+cat AmpB_only.ann.vcf | vcfEffOnePerLine.pl | SnpSift extractFields - CHROM POS REF ALT "ANN[*].IMPACT" "ANN[*].EFFECT" "ANN[*].GENE" "ANN[*].HGVS_C" "ANN[*].HGVS_P" "GEN[*].GT" -v | grep 'HIGH\|MODERATE' > AmpB_only_HIGH|MODERATE.txt
+cat AmpB_only_HIGH\|MODERATE.txt | wc -l # 174
+
+
